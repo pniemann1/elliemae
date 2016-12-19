@@ -7,6 +7,9 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+/**
+ * A thread safe entry logger.
+ */
 public class Entries {
 	private static final SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	File reportFile;
@@ -18,6 +21,13 @@ public class Entries {
 		bw = new BufferedWriter(fw = new FileWriter(reportFile));
 	}
 	
+	/**
+	 * Formats a time stamp and writes entries to a file.
+	 * @param timestamp
+	 * @param filename
+	 * @param dirTopLevel
+	 * @param threadId
+	 */
 	public synchronized void addEntry(long timestamp, String filename, String dirTopLevel, long threadId){
 		StringBuilder buf = new StringBuilder();
 		String formattedTimeStamp = format.format(new Date(timestamp)).toString();
@@ -38,6 +48,10 @@ public class Entries {
 		}
 	}
 	
+	/**
+	 * Closes file handles.  This method should be called after there are no more entries to write
+	 * to clean up open file handles.
+	 */
 	public synchronized void closeReader(){
 		try {
 			if (bw != null)

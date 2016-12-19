@@ -15,13 +15,18 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/*
+ * DirectoryTraverser traverses directories using a Thread Pool Executor and an ArrayBlockingQueue.  
+ * The queue is set to 50 and any rejected executions are added back to the queue with a 1 second
+ * delay.  The thread pool size is configurable but the queue size is not.
+ */
 public class DirectoryTraverser {
 	private ThreadPoolExecutor executor;
 	private ConcurrentHashMap<String, AtomicInteger> map = new ConcurrentHashMap<>();
 	private Entries entries;
 	private TimerTask timerTask;
 	private Timer timer;
-	//private int threadCounter = 0;
+	private int threadCounter = 0;
 	
 	// properties
 	private static final String NUMBER_OF_THERADS = "numberOfThreads";
@@ -38,7 +43,10 @@ public class DirectoryTraverser {
 	private String dirBPath;
 	private String dirCPath;
 	
-	
+	/**
+	 * DirectoryTraverser constructor.  Reads Properties, creates a threadpoolexecutor and a configurable
+	 * timer task to shutdown the executor.
+	 */
 	public DirectoryTraverser(){
 		readProperties();
 		createThreadPoolExecutor();
@@ -71,7 +79,8 @@ public class DirectoryTraverser {
 	}
 	
 	/**
-	 * 
+	 * Creates a CustomThreadPoolExector.  The core threads are prestarted.  The rejection handler
+	 * will add the tasks back to the queue with a 1 second delay.
 	 */
 	private void createThreadPoolExecutor(){
 		BlockingQueue<Runnable> blockingQueue = new ArrayBlockingQueue<Runnable>(50);
@@ -98,7 +107,7 @@ public class DirectoryTraverser {
 	 * @param dir
 	 */
 	public void addTask(File dir){
-		//System.out.println("Adding Task : " + ++threadCounter);
+		System.out.println("Adding Task : " + ++threadCounter);
 		executor.execute(new DirectoryWalker(dir, map, entries));
 	}
 	
@@ -112,6 +121,11 @@ public class DirectoryTraverser {
 		};
 	}
 	
+	/**
+	 * Shuts down the thread pool executor.  The shutdown will wait up to 10 minutes for tasks
+	 * to complete.  After shutdown the realtime data entries file handles are closed and the 
+	 * in memory report is generated.  A system.exit is called to terminate the program.
+	 */
 	public void shutdownThreadPoolExecutor(){
 		executor.shutdown();
 		try {
@@ -164,7 +178,9 @@ public class DirectoryTraverser {
 	}
 	
 	/**
-	 * 
+	 * The DirectoryTraverser Driver adds tasks with directories to be read to the Executor.
+	 * The main thread will exit when the Executor timer expires as System.exit is called in
+	 * the shutdownThreadPoolExecutor method.
 	 * @param args
 	 */
 	public static void main(String[] args){
