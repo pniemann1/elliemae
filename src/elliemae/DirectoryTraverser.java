@@ -52,6 +52,9 @@ public class DirectoryTraverser {
 		}
 	}
 	
+	/**
+	 * 
+	 */
 	private void createThreadPoolExecutor(){
 		BlockingQueue<Runnable> blockingQueue = new ArrayBlockingQueue<Runnable>(50);
 		executor = new CustomThreadPoolExecutor(numberOfThreads, numberOfThreads, 5000, TimeUnit.MILLISECONDS, blockingQueue);
@@ -72,6 +75,10 @@ public class DirectoryTraverser {
 		});
 	}
 	
+	/**
+	 * This is the way to add dirs to be traversed to the ThreadPoolExecutor.
+	 * @param dir
+	 */
 	public void addTask(File dir){
 		threadCounter++;
 		System.out.println("Adding Task : " + threadCounter);
@@ -107,6 +114,10 @@ public class DirectoryTraverser {
 		return dirCPath;
 	}
 	
+	/**
+	 * 
+	 * @param args
+	 */
 	public static void main(String[] args){
 		DirectoryTraverser traverser = new DirectoryTraverser();
 		
