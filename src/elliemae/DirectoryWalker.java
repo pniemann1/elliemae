@@ -11,6 +11,12 @@ public class DirectoryWalker implements Runnable {
 	private Entries entries;
 	private String topLevel;
 	
+	/**
+	 * 
+	 * @param dir
+	 * @param map
+	 * @param entries
+	 */
 	public DirectoryWalker(File dir, ConcurrentHashMap<String, AtomicInteger> map, Entries entries){
 		this.dir = dir;
 		this.map = map;
