@@ -38,7 +38,7 @@ public class Entries {
 		}
 	}
 	
-	public void closeReader(){
+	public synchronized void closeReader(){
 		try {
 			if (bw != null)
 				bw.close();

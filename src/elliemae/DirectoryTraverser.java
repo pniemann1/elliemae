@@ -5,6 +5,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Properties;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -17,16 +19,20 @@ public class DirectoryTraverser {
 	private ThreadPoolExecutor executor;
 	private ConcurrentHashMap<String, AtomicInteger> map = new ConcurrentHashMap<>();
 	private Entries entries;
-	private int threadCounter = 0;
+	private TimerTask timerTask;
+	private Timer timer;
+	//private int threadCounter = 0;
 	
 	// properties
 	private static final String NUMBER_OF_THERADS = "numberOfThreads";
 	private static final String REPORT_OUTPUT_PATH = "reportOutPutPath";
+	private static final String RUNTIME_MILLIS = "runTimeMillis";
 	private static final String DIR_A_PATH = "dirAPath";
 	private static final String DIR_B_PATH = "dirBPath";
 	private static final String DIR_C_PATH = "dirCPath";
 
 	private Integer numberOfThreads;
+	private long runTimeMillis;
 	private String reportOutPutPath;
 	private String dirAPath;
 	private String dirBPath;
@@ -36,11 +42,16 @@ public class DirectoryTraverser {
 	public DirectoryTraverser(){
 		readProperties();
 		createThreadPoolExecutor();
+		
 		try {
 			entries = new Entries(reportOutPutPath);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		
+		createTimerTask();
+		timer = new Timer();
+		timer.schedule(timerTask, runTimeMillis);
 	}
 
 	private void readProperties(){
@@ -48,6 +59,7 @@ public class DirectoryTraverser {
 			Properties props = new Properties();
 			props.load(this.getClass().getResourceAsStream("config.properties"));
 			numberOfThreads = Integer.valueOf(props.getProperty(NUMBER_OF_THERADS, "10"));
+			runTimeMillis = Long.valueOf(props.getProperty(RUNTIME_MILLIS, "10000"));
 			reportOutPutPath = props.getProperty(REPORT_OUTPUT_PATH, "C:\\elliemae");
 			dirAPath = props.getProperty(DIR_A_PATH, "C:\\elliemae/a");
 			dirBPath = props.getProperty(DIR_B_PATH, "C:\\elliemae/b");
@@ -82,13 +94,22 @@ public class DirectoryTraverser {
 	}
 	
 	/**
-	 * This is the way to add dirs to be traversed to the ThreadPoolExecutor.
+	 * Add dirs to be traversed to the ThreadPoolExecutor.
 	 * @param dir
 	 */
 	public void addTask(File dir){
-		threadCounter++;
-		//System.out.println("Adding Task : " + threadCounter);
+		//System.out.println("Adding Task : " + ++threadCounter);
 		executor.execute(new DirectoryWalker(dir, map, entries));
+	}
+	
+	private void createTimerTask(){
+		timerTask = new TimerTask(){
+			@Override
+			public void run() {
+				shutdownThreadPoolExecutor();
+				timer.cancel();
+			}	
+		};
 	}
 	
 	public void shutdownThreadPoolExecutor(){
@@ -102,13 +123,32 @@ public class DirectoryTraverser {
 			entries.closeReader();
 		
 		printInMemoryReport();
+		// exit successfully
+		System.exit(0);
 	}
 	
 	/**
-	 * print map to console and file
+	 * Prints in memory map to console and file
 	 */
 	public void printInMemoryReport(){
+		// print to console
 		map.forEach((key, value) -> System.out.println(key + " - " + value));
+		
+		// print to file
+		File reportFile = new File(reportOutPutPath, "directoryTraverserInMemoryOutput.txt");
+		try (BufferedWriter bw = new BufferedWriter(new FileWriter(reportFile))){
+			map.forEach((key, value) -> {
+				try {
+					bw.write(key + " - " + value);
+					bw.newLine();
+					bw.flush();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			});
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	public String getDirAPath() {
@@ -130,16 +170,11 @@ public class DirectoryTraverser {
 	public static void main(String[] args){
 		DirectoryTraverser traverser = new DirectoryTraverser();
 		
-		int counter = 0;
 		while (true) {
-			counter++;
 			// Adding threads one by one
 			traverser.addTask(new File(traverser.getDirAPath()));
 			traverser.addTask(new File(traverser.getDirBPath()));
 			traverser.addTask(new File(traverser.getDirCPath()));
-			if(counter == 50) break;
 		}
-		
-		traverser.shutdownThreadPoolExecutor();
 	}
 }
