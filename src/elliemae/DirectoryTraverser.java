@@ -1,6 +1,8 @@
 package elliemae;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Properties;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -12,10 +14,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class DirectoryTraverser {
-	
 	private ThreadPoolExecutor executor;
 	private ConcurrentHashMap<String, AtomicInteger> map = new ConcurrentHashMap<>();
-	private Entries entries = new Entries();
+	private Entries entries;
 	private int threadCounter = 0;
 	
 	// properties
@@ -35,6 +36,11 @@ public class DirectoryTraverser {
 	public DirectoryTraverser(){
 		readProperties();
 		createThreadPoolExecutor();
+		try {
+			entries = new Entries(reportOutPutPath);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	private void readProperties(){
@@ -63,8 +69,8 @@ public class DirectoryTraverser {
 		executor.setRejectedExecutionHandler(new RejectedExecutionHandler() {
 			@Override
 			public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
-				System.out.println("DirectoryWalker Rejected for dir: "+ ((DirectoryWalker) r).getTopLevel() + "\n" +
-						"Waiting for a second and adding again !!");
+				//System.out.println("DirectoryWalker Rejected for dir: "+ ((DirectoryWalker) r).getTopLevel() + "\n" +
+						//"Waiting for a second and adding again !!");
 				try {
 					Thread.sleep(1000);
 				} catch (InterruptedException e) {
@@ -81,25 +87,28 @@ public class DirectoryTraverser {
 	 */
 	public void addTask(File dir){
 		threadCounter++;
-		System.out.println("Adding Task : " + threadCounter);
+		//System.out.println("Adding Task : " + threadCounter);
 		executor.execute(new DirectoryWalker(dir, map, entries));
 	}
 	
 	public void shutdownThreadPoolExecutor(){
 		executor.shutdown();
-		//executor.awaitTermination(10, TimeUnit.MINUTES);
+		try {
+			executor.awaitTermination(10, TimeUnit.MINUTES);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		if(executor.isShutdown())
+			entries.closeReader();
 		
-		printReport();
+		printInMemoryReport();
 	}
 	
-	public void printReport(){
-		// print map to console and file
+	/**
+	 * print map to console and file
+	 */
+	public void printInMemoryReport(){
 		map.forEach((key, value) -> System.out.println(key + " - " + value));
-		
-		
-		
-		// print entries to file
-		entries.createReport(reportOutPutPath);
 	}
 	
 	public String getDirAPath() {
@@ -128,7 +137,7 @@ public class DirectoryTraverser {
 			traverser.addTask(new File(traverser.getDirAPath()));
 			traverser.addTask(new File(traverser.getDirBPath()));
 			traverser.addTask(new File(traverser.getDirCPath()));
-			if(counter == 5000) break;
+			if(counter == 50) break;
 		}
 		
 		traverser.shutdownThreadPoolExecutor();
