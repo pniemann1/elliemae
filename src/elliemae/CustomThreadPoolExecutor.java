@@ -28,9 +28,19 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
 		//System.out.println("Perform beforeExecute() logic");
 		// if the dir is already being worked on then remove and requeue the task
 		if (map.containsKey(((DirectoryWalker) r).getTopLevel())){
-			super.remove(r);
-			if(!this.isShutdown())
+			if(!this.isShutdown()){
+				super.remove(r);
 				super.execute(r);
+			} else {
+				while (map.containsKey(((DirectoryWalker) r).getTopLevel())){
+					// if in shutdown then sleep until it can work on the dir
+					try {
+						Thread.sleep(1000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+				}
+			}
 		}
 		else{
 			map.put( ((DirectoryWalker) r).getTopLevel(), 1);
