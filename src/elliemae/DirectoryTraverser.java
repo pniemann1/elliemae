@@ -129,7 +129,9 @@ public class DirectoryTraverser {
 	public void shutdownThreadPoolExecutor(){
 		executor.shutdown();
 		try {
+			System.out.println("waiting termination");
 			executor.awaitTermination(10, TimeUnit.MINUTES);
+			System.out.println("waiting termination done");
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
