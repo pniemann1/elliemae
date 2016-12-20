@@ -40,6 +40,7 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
 						e.printStackTrace();
 					}
 				}
+				map.put( ((DirectoryWalker) r).getTopLevel(), 1);
 			}
 		}
 		else{
