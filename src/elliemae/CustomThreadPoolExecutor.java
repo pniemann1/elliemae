@@ -27,26 +27,31 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
 	protected void beforeExecute(Thread t, Runnable r) {
 		//System.out.println("Perform beforeExecute() logic");
 		// if the dir is already being worked on then remove and requeue the task
-		if (map.containsKey(((DirectoryWalker) r).getTopLevel())){
-			if(!this.isShutdown()){
-				super.remove(r);
-				super.execute(r);
-			} else {
-				while (map.containsKey(((DirectoryWalker) r).getTopLevel())){
-					// if in shutdown then sleep until it can work on the dir
-					try {
-						Thread.sleep(1000);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
+		synchronized(this){
+			if (map.containsKey(((DirectoryWalker) r).getTopLevel())){
+				if(!this.isShutdown()){
+					//System.out.println("Removing task and adding to queue");
+					super.remove(r);
+					super.execute(r);
+				} else {
+					while (map.containsKey(((DirectoryWalker) r).getTopLevel())){
+						// if in shutdown then sleep until it can work on the dir
+						try {
+							Thread.sleep(1000);
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
 					}
+					//System.out.println("adding to map from shutdown");
+					map.put( ((DirectoryWalker) r).getTopLevel(), 1);
 				}
+			}
+			else {
+				//System.out.println("adding to map");
 				map.put( ((DirectoryWalker) r).getTopLevel(), 1);
 			}
+			super.beforeExecute(t, r);
 		}
-		else{
-			map.put( ((DirectoryWalker) r).getTopLevel(), 1);
-		}
-		super.beforeExecute(t, r);
 	}
 	
 	/**
@@ -57,6 +62,7 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
 	protected void afterExecute(Runnable r, Throwable t) {
 		super.afterExecute(r, t);
 		//System.out.println("Perform afterExecute() logic");
+		//System.out.println("removing from map");
 		map.remove(((DirectoryWalker) r).getTopLevel());
 	}
 }
