@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class DirectoryTraverser {
 	private ThreadPoolExecutor executor;
-	private ConcurrentHashMap<String, AtomicInteger> map = new ConcurrentHashMap<>();
+	private ConcurrentHashMap<String, AtomicInteger> countMap = new ConcurrentHashMap<>();
 	private Entries entries;
 	private TimerTask timerTask;
 	private Timer timer;
@@ -84,7 +84,7 @@ public class DirectoryTraverser {
 	 */
 	private void createThreadPoolExecutor(){
 		BlockingQueue<Runnable> blockingQueue = new ArrayBlockingQueue<Runnable>(50);
-		executor = new CustomThreadPoolExecutor(numberOfThreads, numberOfThreads, 5000, TimeUnit.MILLISECONDS, blockingQueue);
+		executor = new ThreadPoolExecutor(numberOfThreads, numberOfThreads, 5000, TimeUnit.MILLISECONDS, blockingQueue);
 		executor.prestartAllCoreThreads();
 	
 		executor.setRejectedExecutionHandler(new RejectedExecutionHandler() {
@@ -108,7 +108,7 @@ public class DirectoryTraverser {
 	 */
 	public void addTask(File dir){
 		System.out.println("Adding Task : " + ++threadCounter);
-		executor.execute(new DirectoryWalker(dir, map, entries));
+		executor.execute(new DirectoryWalker(dir, countMap, entries));
 	}
 	
 	private void createTimerTask(){
@@ -129,9 +129,9 @@ public class DirectoryTraverser {
 	public void shutdownThreadPoolExecutor(){
 		executor.shutdown();
 		try {
-			System.out.println("waiting termination");
-			executor.awaitTermination(10, TimeUnit.MINUTES);
-			System.out.println("waiting termination done");
+			System.out.println("!!Shutdown, waiting termination");
+			executor.awaitTermination(1, TimeUnit.MINUTES);
+			System.out.println("!!Shutdown, waiting termination done");
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
@@ -148,12 +148,12 @@ public class DirectoryTraverser {
 	 */
 	public void printInMemoryReport(){
 		// print to console
-		map.forEach((key, value) -> System.out.println(key + " - " + value));
+		countMap.forEach((key, value) -> System.out.println(key + " - " + value));
 		
 		// print to file
 		File reportFile = new File(reportOutPutPath, "directoryTraverserInMemoryOutput.txt");
 		try (BufferedWriter bw = new BufferedWriter(new FileWriter(reportFile))){
-			map.forEach((key, value) -> {
+			countMap.forEach((key, value) -> {
 				try {
 					bw.write(key + " - " + value);
 					bw.newLine();
