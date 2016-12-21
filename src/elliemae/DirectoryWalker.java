@@ -1,6 +1,11 @@
 package elliemae;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.channels.FileChannel;
+import java.nio.channels.OverlappingFileLockException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -12,9 +17,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class DirectoryWalker implements Runnable {
 	
 	private File dir;
-	private ConcurrentHashMap<String, AtomicInteger> map;
+	private ConcurrentHashMap<String, AtomicInteger> countMap;
 	private Entries entries;
 	private String topLevel;
+	private static final String LOCKFILE = "lockfile";
 	
 	/**
 	 * Constructor
@@ -24,7 +30,7 @@ public class DirectoryWalker implements Runnable {
 	 */
 	public DirectoryWalker(File dir, ConcurrentHashMap<String, AtomicInteger> map, Entries entries){
 		this.dir = dir;
-		this.map = map;
+		this.countMap = map;
 		this.entries = entries;
 		topLevel = dir.getName();
 	}
@@ -36,7 +42,7 @@ public class DirectoryWalker implements Runnable {
 	 * entries found to a file.
 	 * @param dir
 	 */
-	private void traverse(File dir){
+	private void traverse(File dir){	
 	    if (dir.isDirectory()) {
 	        String[] children = dir.list();
 	        if (children != null){
@@ -45,9 +51,9 @@ public class DirectoryWalker implements Runnable {
 		        }
 	        }
 	    }
-	    if (dir.isFile()) {
-	    	if( map.putIfAbsent(dir.getName(), new AtomicInteger(1)) != null ) {    
-	    		  map.get(dir.getName()).addAndGet(1);
+	    if (dir.isFile() && !dir.getName().equals(LOCKFILE)) {
+	    	if( countMap.putIfAbsent(dir.getName(), new AtomicInteger(1)) != null ) {    
+	    		countMap.get(dir.getName()).addAndGet(1);
 	    	}
 	
 	    	entries.addEntry(System.currentTimeMillis(), topLevel, dir.getName(), Thread.currentThread().getId());
@@ -57,7 +63,49 @@ public class DirectoryWalker implements Runnable {
 
 	@Override
 	public void run() {
-		traverse(dir);
+		FileOutputStream out = null;
+		java.nio.channels.FileLock lock = null;
+		
+		try {
+			// create a lockfile if it does not exist
+			File lockfile = new File(dir, LOCKFILE);
+			if (!lockfile.exists()) {
+				lockfile.createNewFile();
+			}
+			
+			// get a lock to the file
+			out = new FileOutputStream(new File(dir, LOCKFILE));
+			FileChannel channel = out.getChannel();
+			
+			while (lock == null){
+				try {
+					lock = channel.tryLock();
+				}
+				catch (OverlappingFileLockException ex){
+					//ex.printStackTrace();
+					//System.out.println("sleeping getting lockfile");
+					try {
+						Thread.sleep(100);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+				}
+			}
+			
+			// traverse the directory
+			traverse(dir);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		finally {
+		    try {
+		    	lock.release();
+				out.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 	}
-
 }
