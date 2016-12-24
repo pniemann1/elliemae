@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class DirectoryTraverser {
 	private ThreadPoolExecutor executor;
 	private ConcurrentHashMap<String, AtomicInteger> countMap = new ConcurrentHashMap<>();
-	private Entries entries;
+	private EntryLogger entries;
 	private TimerTask timerTask;
 	private Timer timer;
 	private int threadCounter = 0;
@@ -52,7 +52,7 @@ public class DirectoryTraverser {
 		createThreadPoolExecutor();
 		
 		try {
-			entries = new Entries(reportOutPutPath);
+			entries = new EntryLogger(reportOutPutPath);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

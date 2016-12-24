@@ -6,6 +6,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.OverlappingFileLockException;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -18,9 +19,10 @@ public class DirectoryWalker implements Runnable {
 	
 	private File dir;
 	private ConcurrentHashMap<String, AtomicInteger> countMap;
-	private Entries entries;
+	private EntryLogger entryLogger;
 	private String topLevel;
 	private static final String LOCKFILE = "lockfile";
+	private ArrayList<Entry> entryList = new ArrayList<>();
 	
 	/**
 	 * Constructor
@@ -28,10 +30,10 @@ public class DirectoryWalker implements Runnable {
 	 * @param map a map to hold the in memory file counts
 	 * @param entries a class to log file entries to a file
 	 */
-	public DirectoryWalker(File dir, ConcurrentHashMap<String, AtomicInteger> map, Entries entries){
+	public DirectoryWalker(File dir, ConcurrentHashMap<String, AtomicInteger> map, EntryLogger entries){
 		this.dir = dir;
 		this.countMap = map;
-		this.entries = entries;
+		this.entryLogger = entries;
 		topLevel = dir.getName();
 	}
 	
@@ -52,14 +54,15 @@ public class DirectoryWalker implements Runnable {
 	        }
 	    }
 	    if (dir.isFile() && !dir.getName().equals(LOCKFILE)) {
-	    	if( countMap.putIfAbsent(dir.getName(), new AtomicInteger(1)) != null ) {    
-	    		countMap.get(dir.getName()).addAndGet(1);
+	    	AtomicInteger atomic = null;
+	    	atomic = countMap.putIfAbsent(dir.getName(), new AtomicInteger(1));
+	    	if (atomic != null){
+	    		atomic.addAndGet(1);
 	    	}
 	
-	    	entries.addEntry(System.currentTimeMillis(), topLevel, dir.getName(), Thread.currentThread().getId());
+	    	entryList.add(new Entry(System.currentTimeMillis(), topLevel, dir.getName(), Thread.currentThread().getId()));
 	    }
 	}
-
 
 	@Override
 	public void run() {
@@ -101,11 +104,15 @@ public class DirectoryWalker implements Runnable {
 		}
 		finally {
 		    try {
-		    	lock.release();
-				out.close();
+		    	if (lock != null)
+		    		lock.release();
+		    	if(out != null)
+		    		out.close();
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
+		
+		entryLogger.logEntry(entryList);
 	}
 }
